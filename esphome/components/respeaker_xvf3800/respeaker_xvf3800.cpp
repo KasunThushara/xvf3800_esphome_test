@@ -422,23 +422,43 @@ int RespeakerXVF3800::read_led_beam_direction() {
 
   uint8_t doa_resp[GPO_DOA_READ_NUM_BYTES + 1];
   
+  // Perform the write_read operation
   i2c::ErrorCode err = this->write_read(doa_req, sizeof(doa_req), doa_resp, sizeof(doa_resp));
+  
+  // Check for I2C errors
   if (err != i2c::ERROR_OK) {
     ESP_LOGW(TAG, "Failed to read DoA values, I2C error=%d", (int)err);
     return -1;
   }
-  
+
+  // Log the raw response for debugging
+  ESP_LOGD(TAG, "Raw response: ");
+  for (int i = 0; i < sizeof(doa_resp); i++) {
+    ESP_LOGD(TAG, "doa_resp[%d]: 0x%02X", i, doa_resp[i]);
+  }
+
+  // Extract the status byte
   uint8_t status = doa_resp[0];
   if (status != 0) {
+    // Log the status byte if it's not zero
     ESP_LOGW(TAG, "DoA read returned error status: %02X", status);
     return -1;
   }
 
+  // Ensure the expected number of bytes are read, add logging to check the response
+  if (sizeof(doa_resp) < GPO_DOA_READ_NUM_BYTES + 1) {
+    ESP_LOGW(TAG, "Invalid response length. Expected: %d, Got: %d", GPO_DOA_READ_NUM_BYTES + 1, sizeof(doa_resp));
+    return -1;
+  }
+
+  // Extract DoA and speech detected values from the response
   uint16_t doa_value = (doa_resp[2] << 8) | doa_resp[1];
   uint16_t speech_detected = (doa_resp[4] << 8) | doa_resp[3];
-  
+
+  // Log the extracted values for debugging
   ESP_LOGD(TAG, "DoA value: %d, Speech detected: %d", doa_value, speech_detected);
-  
+
+  // Return the DoA value
   return doa_value;
 }
 
